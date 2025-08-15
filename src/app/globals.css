@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* sticky header */
+.table-sticky th {
+  position: sticky;
+  top: 0;
+  background: linear-gradient(180deg, #fbfbfd 0%, #ffffff 100%);
+  z-index: 10;
+}
+
+/* focus ring for keyboard nav */
+.focus-ring:focus {
+  outline: 2px solid rgb(59 130 246);
+  outline-offset: -2px;
+}
+
+/* subtle hover */
+.tr-hover:hover { background: #f8fafc; }
+
+/* column resize handle target */
+.th-resize-handle { position:absolute; right:0; top:0; height:100%; width:6px; cursor:col-resize; }
+.th-resize-handle:hover { background: rgba(0,0,0,0.06); }
+
+/* Smooth transitions */
+th, td { transition: background-color .15s ease, color .15s ease, box-shadow .15s ease; }
+
+/* DnD header ghost */
+.header-ghost {
+  padding: .5rem .75rem;
+  background: white;
+  border-radius: .75rem;
+  box-shadow: 0 10px 25px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.08);
+  border: 1px solid rgba(0,0,0,.06);
+  transform: rotate(-2deg);
+}
