@@ -16,7 +16,13 @@ import {
   useReactTable,
   flexRender,
 } from "@tanstack/react-table";
-import { useMemo, useRef, useState, Fragment } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  useEffect,
+  Fragment,
+} from "react";
 import type { Deal } from "@/lib/schema";
 import classNames from "classnames";
 import { nextCell, GridCoord } from "@/lib/keyboard";
@@ -29,6 +35,7 @@ import { RowMenu } from "./ContextMenus";
 import { DealsApiProvider } from "./tableApi";
 import Toolbar from "./Toolbar";
 import TotalsBar from "./TotalsBar";
+import DealDetails from "./DealDetails";
 import {
   DndContext,
   PointerSensor,
@@ -45,8 +52,6 @@ const ColumnHeader = dynamic(() => import("./ColumnHeader"), { ssr: false });
 // ---------- overlay sizing ----------
 const OVERLAY_MIN_W = 260;
 const OVERLAY_MAX_W = 300;
-const OVERLAY_HEIGHT = 460;
-const OVERLAY_PREVIEW_ROWS = 6;
 
 // ---------- tiny utils ----------
 const money = (n: number) =>
@@ -63,32 +68,29 @@ const initials = (name: string) =>
     .slice(0, 2)
     .join("");
 
-// same color stacks you use in cells, read-only
+// Colors aligned with StatusCell & StageCell for preview ghost
 const STATUS_BG: Record<Deal["status"], string> = {
-  Open: "bg-green-400 text-white",
-  Blocked: "bg-green-500 text-white",
-  "On Hold": "bg-green-600 text-white",
-  Closed: "bg-green-700 text-white",
+  Open: "bg-emerald-500 text-white",
+  Blocked: "bg-rose-500 text-white",
+  "On Hold": "bg-amber-400 text-black",
+  Closed: "bg-slate-500 text-white",
 };
-
 const STAGE_BG: Record<Deal["stage"], string> = {
-  New: "bg-purple-400 text-white",
-  Qualified: "bg-purple-500 text-white",
-  Proposal: "bg-purple-600 text-white",
-  Negotiation: "bg-purple-700 text-white",
-  Won: "bg-purple-800 text-white",
-  Lost: "bg-purple-900 text-white",
+  New: "bg-sky-500 text-white",
+  Qualified: "bg-violet-500 text-white",
+  Proposal: "bg-cyan-500 text-white",
+  Negotiation: "bg-amber-500 text-black",
+  Won: "bg-emerald-500 text-white",
+  Lost: "bg-slate-500 text-white",
 };
 
 // ---------- preview renderer for overlay ----------
 function PreviewCell({
   colId,
   value,
-  row,
 }: {
   colId: string;
   value: unknown;
-  row: Deal;
 }) {
   switch (colId) {
     case "status": {
@@ -156,7 +158,7 @@ function HeaderGhost({
   width: number;
   height: number;
   colId: string;
-  items: Array<{ key: string; value: unknown; row: Deal }>;
+  items: Array<{ key: string; value: unknown }>;
 }) {
   return (
     <div
@@ -166,7 +168,7 @@ function HeaderGhost({
       <div className="text-xs uppercase tracking-wide text-slate-500 px-1 py-1">{label}</div>
       <div className="mt-2 space-y-2 h-[calc(100%-32px)] overflow-hidden">
         {items.map((it) => (
-          <PreviewCell key={it.key} colId={colId} value={it.value} row={it.row} />
+          <PreviewCell key={it.key} colId={colId} value={it.value} />
         ))}
       </div>
     </div>
@@ -177,9 +179,11 @@ type GridProps = {
   data: Deal[];
   /** Height for the scroll container in px (e.g., 800) */
   height?: number;
+  /** How many example rows to show in the drag preview (HeaderGhost) */
+  previewRows?: number;
 };
 
-export default function DealsGrid({ data, height = 600 }: GridProps) {
+export default function DealsGrid({ data, height = 600, previewRows = 10 }: GridProps) {
   // ---- table state ----
   const [sorting, setSorting] = useLocalStorageState<SortingState>("grid:sorting", []);
   const [columnVisibility, setColumnVisibility] =
@@ -202,7 +206,10 @@ export default function DealsGrid({ data, height = 600 }: GridProps) {
   const [draggingColId, setDraggingColId] = useState<string | null>(null);
   const [overlayWidth, setOverlayWidth] = useState<number>(OVERLAY_MIN_W);
   const [overlayLabel, setOverlayLabel] = useState<string>("");
-  const [overlayItems, setOverlayItems] = useState<Array<{ key: string; value: unknown; row: Deal }>>([]);
+  const [overlayItems, setOverlayItems] = useState<Array<{ key: string; value: unknown }>>([]);
+
+  // compute overlay height from requested previewRows (each ~36–40px + header/padding)
+  const overlayHeight = Math.min(640, 48 + Math.max(1, previewRows) * 40);
 
   // ---- columns ----
   const columns = useMemo<ColumnDef<Deal, unknown>[]>(() => [
@@ -248,14 +255,27 @@ export default function DealsGrid({ data, height = 600 }: GridProps) {
     {
       accessorKey: "name",
       header: "Deal",
-      cell: (ctx) => (
-        <button
-          className="text-blue-700 underline-offset-2 hover:underline focus-ring"
-          onClick={() => ctx.row.toggleExpanded()}
-        >
-          {ctx.getValue<string>()}
-        </button>
-      ),
+      cell: (ctx) => {
+        const expanded = ctx.row.getIsExpanded();
+        return (
+          <button
+            className="flex items-center gap-2 text-blue-700 underline-offset-2 cursor-pointer hover:underline focus-ring"
+            onClick={() => ctx.row.toggleExpanded()}
+            title={expanded ? "Collapse" : "click to Expand"}
+          >
+            <span
+              className={[
+                "inline-block transition-transform duration-150",
+                expanded ? "rotate-90" : "rotate-0",
+              ].join(" ")}
+              aria-hidden
+            >
+              ▶
+            </span>
+            <span className="truncate">{ctx.getValue<string>()}</span>
+          </button>
+        );
+      },
       enableHiding: false,
       size: 240,
     },
@@ -408,11 +428,10 @@ export default function DealsGrid({ data, height = 600 }: GridProps) {
 
       const items = rt
         .getRowModel()
-        .rows.slice(0, OVERLAY_PREVIEW_ROWS)
+        .rows.slice(0, Math.max(1, previewRows))
         .map((r) => ({
           key: r.id,
           value: r.getValue(col.id as string),
-          row: r.original as Deal,
         }));
       setOverlayItems(items);
     }
@@ -451,18 +470,39 @@ export default function DealsGrid({ data, height = 600 }: GridProps) {
 
   const totalWidth = rt.getTotalSize();
 
+  // ---- sticky toolbar measurement ----
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!scrollRef.current || !toolbarRef.current) return;
+    const el = toolbarRef.current;
+    const apply = () => {
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      scrollRef.current!.style.setProperty("--grid-toolbar-h", `${h}px`);
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <DealsApiProvider value={api}>
-      {/* Toolbar must be INSIDE provider */}
-      <div className="p-3">
-        <Toolbar />
-      </div>
-
-      {/* Single scroll container controls both axes */}
+      {/* Single scroll container controls both axes; toolbar is sticky inside */}
       <div
+        ref={scrollRef}
         className="w-full overflow-auto overscroll-contain border-t border-slate-200 bg-white"
         style={{ height }}
       >
+        {/* Sticky toolbar */}
+        <div
+          ref={toolbarRef}
+          className="sticky top-0 z-[60] bg-white/95 backdrop-blur border-b border-slate-200 p-3"
+        >
+          <Toolbar />
+        </div>
+
         <DndContext
           sensors={sensors}
           onDragStart={onDragStart}
@@ -476,9 +516,11 @@ export default function DealsGrid({ data, height = 600 }: GridProps) {
             className="table-fixed text-[13px] min-w-[900px]"
             onKeyDown={onKeyDown}
             suppressHydrationWarning
-            style={{ width: totalWidth }}  // sum of column sizes -> horizontal scroll
+            /* Width equals sum of column sizes — enables horizontal overflow */
+            style={{ width: totalWidth }}
           >
-            <thead className="table-sticky text-xs uppercase tracking-wide text-slate-600">
+            {/* NOTE: ensure your ColumnHeader uses `top-[var(--grid-toolbar-h,0px)]` for sticky! */}
+            <thead className="text-xs uppercase tracking-wide text-slate-600">
               {rt.getHeaderGroups().map((hg) => (
                 <tr key={hg.id}>
                   <SortableContext items={hg.headers.map((h) => h.column.id)}>
@@ -508,10 +550,13 @@ export default function DealsGrid({ data, height = 600 }: GridProps) {
                         tabIndex={focus.row === rowIndex && focus.col === colIndex ? 0 : -1}
                         className={classNames(
                           "border-b border-slate-100 align-middle focus-ring transition-colors",
+                          // highlight the column being dragged
                           cell.column.id === draggingColId && "bg-blue-50/70",
+                          // tight padding for stage/status cells
                           (cell.column.id === "stage" || cell.column.id === "status")
                             ? "p-0"
                             : "px-3 py-2",
+                          // keyboard focus ring
                           focus.row === rowIndex && focus.col === colIndex && "ring-1 ring-blue-500"
                         )}
                         onFocus={() => setFocus({ row: rowIndex, col: colIndex })}
@@ -523,17 +568,27 @@ export default function DealsGrid({ data, height = 600 }: GridProps) {
                       </td>
                     ))}
                   </tr>
+
+                  {/* Expanded details row */}
+                  {row.getIsExpanded() && (
+                    <tr className="bg-slate-50/40">
+                      <td colSpan={visibleCols.length} className="px-3 py-3">
+                        <DealDetails deal={row.original as Deal} />
+                      </td>
+                    </tr>
+                  )}
                 </Fragment>
               ))}
             </tbody>
           </table>
 
+          {/* Drag overlay with real cell previews */}
           <DragOverlay dropAnimation={null}>
             {draggingColId ? (
               <HeaderGhost
                 label={overlayLabel}
                 width={overlayWidth}
-                height={OVERLAY_HEIGHT}
+                height={overlayHeight}
                 colId={draggingColId}
                 items={overlayItems}
               />

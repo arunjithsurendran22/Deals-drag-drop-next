@@ -8,7 +8,7 @@ export default function DealsPage() {
 
       {/* All-in-one grid shell: Toolbar + Table + Totals inside provider */}
       <div className="overflow-hidden rounded-md shadow-[0_0_12px_rgba(0,0,0,0.6)]">
-        <DealsGrid data={deals} height={650} />
+        <DealsGrid data={deals} height={720} previewRows={15} />
       </div>
     </main>
   );

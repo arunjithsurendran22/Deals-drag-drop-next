@@ -45,3 +45,11 @@ th, td { transition: background-color .15s ease, color .15s ease, box-shadow .15
   border: 1px solid rgba(0,0,0,.06);
   transform: rotate(-2deg);
 }
+/* Sticky grid header inside the grid scroller */
+.grid-sticky thead th {
+  position: sticky;
+  top: var(--grid-toolbar-h, 0px); /* set by DataGrid based on toolbar height */
+  z-index: 20;
+  background: #fff;               /* cover rows under it */
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,.08); /* crisp divider */
+}
