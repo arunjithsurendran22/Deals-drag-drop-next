@@ -38,6 +38,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove } from "@dnd-kit/sortable";
 
+// hydrate-safe column header
 const ColumnHeader = dynamic(() => import("./ColumnHeader"), { ssr: false });
 
 // ---------- overlay sizing ----------
@@ -82,6 +83,7 @@ const STAGE_BG: Record<Deal["stage"], string> = {
 function PreviewCell({
   colId,
   value,
+  row,
 }: {
   colId: string;
   value: unknown;
@@ -179,7 +181,13 @@ function HeaderGhost({
   );
 }
 
-export default function DataGrid({ data }: { data: Deal[] }) {
+type GridProps = {
+  data: Deal[];
+  /** Height for the scroll container in px (e.g., 800) */
+  height?: number;
+};
+
+export default function DataGrid({ data, height = 600 }: GridProps) {
   // ---- table state ----
   const [sorting, setSorting] = useLocalStorageState<SortingState>("grid:sorting", []);
   const [columnVisibility, setColumnVisibility] =
@@ -197,9 +205,7 @@ export default function DataGrid({ data }: { data: Deal[] }) {
   const shiftRef = useRef(false);
   const [focus, setFocus] = useState<GridCoord>({ row: 0, col: 0 });
   const [_tick, setTick] = useState(0);
-console.log('====================================');
-console.log(_tick);
-console.log('====================================');
+
   // ---- overlay state ----
   const [draggingColId, setDraggingColId] = useState<string | null>(null);
   const [overlayWidth, setOverlayWidth] = useState<number>(OVERLAY_MIN_W);
@@ -465,9 +471,16 @@ console.log('====================================');
     setAmountMax,
   };
 
+  // 👇 Make the table as wide as its columns so it can overflow horizontally.
+  const totalWidth = rt.getTotalSize();
+
   return (
     <DealsApiProvider value={api}>
-      <div className="w-full overflow-auto border border-slate-200 bg-white shadow-sm">
+      {/* Single scroll container controls both axes */}
+      <div
+        className="w-full overflow-auto overscroll-contain border border-slate-200 bg-white"
+        style={{ height }}
+      >
         <DndContext
           sensors={sensors}
           onDragStart={onDragStart}
@@ -478,9 +491,11 @@ console.log('====================================');
             role="grid"
             aria-rowcount={rows.length}
             aria-colcount={visibleCols.length}
-            className="min-w-[1000px] table-fixed text-[13px]"
+            className="table-fixed text-[13px] min-w-[900px]" /* decent base width on small screens */
             onKeyDown={onKeyDown}
             suppressHydrationWarning
+            /* Width equals sum of column sizes — enables horizontal overflow */
+            style={{ width: totalWidth }}
           >
             <thead className="table-sticky text-xs uppercase tracking-wide text-slate-600">
               {rt.getHeaderGroups().map((hg) => (
@@ -493,7 +508,7 @@ console.log('====================================');
                 </tr>
               ))}
             </thead>
-              
+
             <tbody className="text-sm">
               {rows.map((row, rowIndex) => (
                 <Fragment key={row.id}>

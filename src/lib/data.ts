@@ -15,4 +15,4 @@ function d(id: number, p: Partial<Deal>): Deal {
   };
 }
 
-export const deals: Deal[] = Array.from({ length: 10 }, (_, i) => d(i+1, {}));
+export const deals: Deal[] = Array.from({ length: 20 }, (_, i) => d(i+1, {}));

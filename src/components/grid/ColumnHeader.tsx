@@ -9,7 +9,7 @@ import { HeaderMenu } from "./ContextMenus";
 import type { Deal } from "@/lib/schema";
 
 export type ColumnHeaderProps = {
-  header: Header<Deal, unknown>; // 👈 lock to your Deal table
+  header: Header<Deal, unknown>;
 };
 
 export default function ColumnHeader({ header }: ColumnHeaderProps) {
@@ -33,7 +33,14 @@ export default function ColumnHeader({ header }: ColumnHeaderProps) {
       ref={setNodeRef}
       style={style}
       aria-sort={isSorted ? (isSorted === "asc" ? "ascending" : "descending") : "none"}
-      className="border-b border-slate-200 border-r bg-white align-middle select-none"
+      className={[
+        // sticky header
+        "sticky top-0 z-20",
+        // visuals
+        "bg-white border-b border-r border-slate-200 align-middle select-none",
+        // crisp divider while scrolling
+        "[box-shadow:inset_0_-1px_0_rgba(0,0,0,0.08)]"
+      ].join(" ")}
     >
       <HeaderMenu column={column}>
         <button
