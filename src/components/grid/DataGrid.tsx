@@ -27,6 +27,8 @@ import { OwnerCell } from "./CellEditors/OwnerCell";
 import { AmountCell } from "./CellEditors/AmountCell";
 import { RowMenu } from "./ContextMenus";
 import { DealsApiProvider } from "./tableApi";
+import Toolbar from "./Toolbar";
+import TotalsBar from "./TotalsBar";
 import {
   DndContext,
   PointerSensor,
@@ -38,7 +40,6 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove } from "@dnd-kit/sortable";
 
-// hydrate-safe column header
 const ColumnHeader = dynamic(() => import("./ColumnHeader"), { ssr: false });
 
 // ---------- overlay sizing ----------
@@ -133,15 +134,6 @@ function PreviewCell({
         </div>
       );
     }
-    case "name":
-    case "createdAt":
-    case "closeDate": {
-      return (
-        <div className="h-9 w-full rounded-md bg-slate-100 px-3 flex items-center truncate">
-          {String(value ?? "")}
-        </div>
-      );
-    }
     default: {
       return (
         <div className="h-9 w-full rounded-md bg-slate-100 px-3 flex items-center truncate">
@@ -187,7 +179,7 @@ type GridProps = {
   height?: number;
 };
 
-export default function DataGrid({ data, height = 600 }: GridProps) {
+export default function DealsGrid({ data, height = 600 }: GridProps) {
   // ---- table state ----
   const [sorting, setSorting] = useLocalStorageState<SortingState>("grid:sorting", []);
   const [columnVisibility, setColumnVisibility] =
@@ -210,9 +202,7 @@ export default function DataGrid({ data, height = 600 }: GridProps) {
   const [draggingColId, setDraggingColId] = useState<string | null>(null);
   const [overlayWidth, setOverlayWidth] = useState<number>(OVERLAY_MIN_W);
   const [overlayLabel, setOverlayLabel] = useState<string>("");
-  const [overlayItems, setOverlayItems] = useState<Array<{ key: string; value: unknown; row: Deal }>>(
-    []
-  );
+  const [overlayItems, setOverlayItems] = useState<Array<{ key: string; value: unknown; row: Deal }>>([]);
 
   // ---- columns ----
   const columns = useMemo<ColumnDef<Deal, unknown>[]>(() => [
@@ -343,21 +333,11 @@ export default function DataGrid({ data, height = 600 }: GridProps) {
       cell: (ctx) => `${Math.round((ctx.getValue<number>() ?? 0) * 100)}%`,
       size: 100,
     },
-    {
-      accessorKey: "createdAt",
-      header: "Created",
-      size: 140,
-      enableSorting: true,
-    },
-    {
-      accessorKey: "closeDate",
-      header: "Close Date",
-      size: 140,
-      enableSorting: true,
-    },
+    { accessorKey: "createdAt", header: "Created", size: 140, enableSorting: true },
+    { accessorKey: "closeDate", header: "Close Date", size: 140, enableSorting: true },
   ], [amountMin, amountMax, data]);
 
-  // ---- table instance (named rt so we don't collide with JSX scope) ----
+  // ---- table instance ----
   const rt = useReactTable({
     data,
     columns,
@@ -383,7 +363,6 @@ export default function DataGrid({ data, height = 600 }: GridProps) {
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getRowCanExpand: () => true,
-    // <-- this exists thanks to the .d.ts augmentation
     meta: { rerender: () => setTick((t) => t + 1) },
   });
 
@@ -443,7 +422,6 @@ export default function DataGrid({ data, height = 600 }: GridProps) {
     const { active, over } = e;
     setDraggingColId(null);
     if (!over || active.id === over.id) return;
-
     const ids = rt.getVisibleLeafColumns().map((c) => c.id);
     const oldIndex = ids.indexOf(String(active.id));
     const newIndex = ids.indexOf(String(over.id));
@@ -471,14 +449,18 @@ export default function DataGrid({ data, height = 600 }: GridProps) {
     setAmountMax,
   };
 
-  // 👇 Make the table as wide as its columns so it can overflow horizontally.
   const totalWidth = rt.getTotalSize();
 
   return (
     <DealsApiProvider value={api}>
+      {/* Toolbar must be INSIDE provider */}
+      <div className="p-3">
+        <Toolbar />
+      </div>
+
       {/* Single scroll container controls both axes */}
       <div
-        className="w-full overflow-auto overscroll-contain border border-slate-200 bg-white"
+        className="w-full overflow-auto overscroll-contain border-t border-slate-200 bg-white"
         style={{ height }}
       >
         <DndContext
@@ -491,11 +473,10 @@ export default function DataGrid({ data, height = 600 }: GridProps) {
             role="grid"
             aria-rowcount={rows.length}
             aria-colcount={visibleCols.length}
-            className="table-fixed text-[13px] min-w-[900px]" /* decent base width on small screens */
+            className="table-fixed text-[13px] min-w-[900px]"
             onKeyDown={onKeyDown}
             suppressHydrationWarning
-            /* Width equals sum of column sizes — enables horizontal overflow */
-            style={{ width: totalWidth }}
+            style={{ width: totalWidth }}  // sum of column sizes -> horizontal scroll
           >
             <thead className="table-sticky text-xs uppercase tracking-wide text-slate-600">
               {rt.getHeaderGroups().map((hg) => (
@@ -527,9 +508,7 @@ export default function DataGrid({ data, height = 600 }: GridProps) {
                         tabIndex={focus.row === rowIndex && focus.col === colIndex ? 0 : -1}
                         className={classNames(
                           "border-b border-slate-100 align-middle focus-ring transition-colors",
-                          // highlight the column being dragged
                           cell.column.id === draggingColId && "bg-blue-50/70",
-                          // ✅ fixed precedence: wrap the OR before the ternary
                           (cell.column.id === "stage" || cell.column.id === "status")
                             ? "p-0"
                             : "px-3 py-2",
@@ -549,7 +528,6 @@ export default function DataGrid({ data, height = 600 }: GridProps) {
             </tbody>
           </table>
 
-          {/* floating “context” ghost: real cell previews for that column */}
           <DragOverlay dropAnimation={null}>
             {draggingColId ? (
               <HeaderGhost
@@ -562,6 +540,11 @@ export default function DataGrid({ data, height = 600 }: GridProps) {
             ) : null}
           </DragOverlay>
         </DndContext>
+      </div>
+
+      {/* Totals inside provider so it sees filtered rows */}
+      <div className="p-3">
+        <TotalsBar />
       </div>
     </DealsApiProvider>
   );

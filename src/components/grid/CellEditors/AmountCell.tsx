@@ -116,7 +116,7 @@ export function AmountCell({
         />
 
         {/* stepper buttons */}
-        <div className="flex items-center gap-1">
+        {/* <div className="flex items-center gap-1">
           <button
             type="button"
             className="h-7 w-7 grid place-items-center rounded border border-slate-200 hover:bg-slate-50"
@@ -137,7 +137,7 @@ export function AmountCell({
           >
             −
           </button>
-        </div>
+        </div> */}
       </div>
 
       {/* helper row */}
