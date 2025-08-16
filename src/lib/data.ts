@@ -3,7 +3,7 @@ import { Deal } from "./schema";
 function d(id: number, p: Partial<Deal>): Deal {
   return {
     id: `d_${id.toString().padStart(3, "0")}`,
-    name: p.name ?? `Deal -${id}`,
+    name: p.name ?? `Deal-${id}`,
     owner: p.owner ?? ["Aisha","Omar","Lina","Raj","Maya"][id % 5],
     company: p.company ?? ["OrbitSoft","Skylytics","NovaBank","Qwibi","Helio"][id % 5],
     stage: p.stage ?? (["New","Qualified","Proposal","Negotiation","Won","Lost"] as const)[id % 6],

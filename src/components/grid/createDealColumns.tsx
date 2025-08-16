@@ -70,14 +70,17 @@ export function createDealColumns({
       ),
       size: 40,
       enableResizing: false,
+      // ✅ this column won't be considered for global search
+      enableGlobalFilter: false,
     },
     {
       accessorKey: "name",
       header: "Deal",
       cell: (ctx) => (
         <button
-          className="text-blue-700 underline-offset-2 hover:underline focus-ring"
+          className="text-blue-700 underline-offset-2 hover:underline focus-ring cursor-pointer"
           onClick={() => ctx.row.toggleExpanded()}
+          title={ctx.row.getIsExpanded() ? "Collapse" : "Click to expand"}
         >
           {ctx.getValue<string>()}
         </button>
@@ -101,6 +104,7 @@ export function createDealColumns({
         );
       },
       size: 140,
+      // dropdown filter: exact match
       filterFn: (row, id, value) => !value || row.getValue(id) === value,
     },
     {
@@ -161,6 +165,7 @@ export function createDealColumns({
       size: 140,
       meta: { aggregate: "sum" },
       enableSorting: true,
+      // toolbar min/max range filter
       filterFn: (row, id) => {
         const v = Number(row.getValue<number>(id));
         const min = amountMin ? Number(amountMin) : -Infinity;
