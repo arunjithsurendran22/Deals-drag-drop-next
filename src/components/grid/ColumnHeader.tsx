@@ -45,7 +45,7 @@ export default function ColumnHeader({ header }: ColumnHeaderProps) {
       <HeaderMenu column={column}>
         <button
           type="button"
-          title="Drag to reorder • Click to sort"
+          title="Drag to reorder • Click to sort • Right-click for more options"
           onClick={column.getToggleSortingHandler()}
           className="flex w-full items-center justify-between gap-2 px-2 py-1
                      cursor-grab active:cursor-grabbing focus:outline-none"

@@ -6,23 +6,23 @@ import { useLayoutEffect, useRef, useState } from "react";
 
 export type Stage = "New" | "Qualified" | "Proposal" | "Negotiation" | "Won" | "Lost";
 
-/** Shared palette for stage badges (exported so the grid/overlay matches) */
+/** Shared palette for stage badges (using CSS vars) */
 export const STAGE_BG: Record<Stage, string> = {
-  New: "bg-sky-500 text-white",
-  Qualified: "bg-violet-500 text-white",
-  Proposal: "bg-cyan-500 text-white",
-  Negotiation: "bg-amber-500 text-black",
-  Won: "bg-emerald-500 text-white",
-  Lost: "bg-slate-500 text-white",
+  New: "bg-[var(--stage-new)] text-white",
+  Qualified: "bg-[var(--stage-qualified)] text-white",
+  Proposal: "bg-[var(--stage-proposal)] text-white",
+  Negotiation: "bg-[var(--stage-negotiation)] text-black",
+  Won: "bg-[var(--stage-won)] text-white",
+  Lost: "bg-[var(--stage-lost)] text-white",
 } as const;
 
 const ITEM_BASE: Record<Stage, string> = {
-  New: "bg-sky-500 text-white hover:bg-sky-600 focus-visible:ring-sky-200",
-  Qualified: "bg-violet-500 text-white hover:bg-violet-600 focus-visible:ring-violet-200",
-  Proposal: "bg-cyan-500 text-white hover:bg-cyan-600 focus-visible:ring-cyan-200",
-  Negotiation: "bg-amber-500 text-black hover:bg-amber-600 focus-visible:ring-amber-200",
-  Won: "bg-emerald-500 text-white hover:bg-emerald-600 focus-visible:ring-emerald-200",
-  Lost: "bg-slate-500 text-white hover:bg-slate-600 focus-visible:ring-slate-200",
+  New: "bg-[var(--stage-new)] text-white hover:brightness-90 focus-visible:ring-[var(--stage-new)]/40",
+  Qualified: "bg-[var(--stage-qualified)] text-white hover:brightness-90 focus-visible:ring-[var(--stage-qualified)]/40",
+  Proposal: "bg-[var(--stage-proposal)] text-white hover:brightness-90 focus-visible:ring-[var(--stage-proposal)]/40",
+  Negotiation: "bg-[var(--stage-negotiation)] text-black hover:brightness-90 focus-visible:ring-[var(--stage-negotiation)]/40",
+  Won: "bg-[var(--stage-won)] text-white hover:brightness-90 focus-visible:ring-[var(--stage-won)]/40",
+  Lost: "bg-[var(--stage-lost)] text-white hover:brightness-90 focus-visible:ring-[var(--stage-lost)]/40",
 } as const;
 
 const OPTIONS: Stage[] = ["New", "Qualified", "Proposal", "Negotiation", "Won", "Lost"];

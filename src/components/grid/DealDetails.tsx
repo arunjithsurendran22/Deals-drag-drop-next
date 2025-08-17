@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -24,21 +23,21 @@ function Badge({
   );
 }
 
-/** Badge colors aligned with StageCell & StatusCell */
+/** Badge colors — now driven by CSS vars from @theme inline */
 const STAGE_BADGE: Record<Deal["stage"], string> = {
-  New: "bg-sky-100 text-sky-700",
-  Qualified: "bg-violet-100 text-violet-700",
-  Proposal: "bg-cyan-100 text-cyan-700",
-  Negotiation: "bg-amber-100 text-amber-800",
-  Won: "bg-emerald-100 text-emerald-700",
-  Lost: "bg-slate-100 text-slate-700",
+  New: "bg-[var(--stage-new)] text-white",
+  Qualified: "bg-[var(--stage-qualified)] text-white",
+  Proposal: "bg-[var(--stage-proposal)] text-white",
+  Negotiation: "bg-[var(--stage-negotiation)] text-black",
+  Won: "bg-[var(--stage-won)] text-white",
+  Lost: "bg-[var(--stage-lost)] text-white",
 };
 
 const STATUS_BADGE: Record<Deal["status"], string> = {
-  Open: "bg-emerald-100 text-emerald-700",
-  Blocked: "bg-rose-100 text-rose-700",
-  "On Hold": "bg-amber-100 text-amber-800",
-  Closed: "bg-slate-100 text-slate-700",
+  Open: "bg-[var(--status-open)] text-white",
+  Blocked: "bg-[var(--status-blocked)] text-white",
+  "On Hold": "bg-[var(--status-hold)] text-black",
+  Closed: "bg-[var(--status-closed)] text-white",
 };
 
 export default function DealDetails({ deal }: { deal: Deal }) {

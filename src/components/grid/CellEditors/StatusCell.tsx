@@ -5,19 +5,19 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { Deal } from "@/lib/schema";
 
-/** Shared palette for status badges (exported) */
+/** Shared palette for status badges (using CSS vars) */
 export const STATUS_BG: Record<Deal["status"], string> = {
-  Open: "bg-emerald-500 text-white",
-  Blocked: "bg-rose-500 text-white",
-  "On Hold": "bg-amber-400 text-black",
-  Closed: "bg-slate-500 text-white",
+  Open: "bg-[var(--status-open)] text-white",
+  Blocked: "bg-[var(--status-blocked)] text-white",
+  "On Hold": "bg-[var(--status-hold)] text-black",
+  Closed: "bg-[var(--status-closed)] text-white",
 } as const;
 
 const ITEM_BASE: Record<Deal["status"], string> = {
-  Open: "bg-emerald-500 text-white hover:bg-emerald-600 focus-visible:ring-emerald-200",
-  Blocked: "bg-rose-500 text-white hover:bg-rose-600 focus-visible:ring-rose-200",
-  "On Hold": "bg-amber-400 text-black hover:bg-amber-500 focus-visible:ring-amber-200",
-  Closed: "bg-slate-500 text-white hover:bg-slate-600 focus-visible:ring-slate-200",
+  Open: "bg-[var(--status-open)] text-white hover:brightness-90 focus-visible:ring-[var(--status-open)]/40",
+  Blocked: "bg-[var(--status-blocked)] text-white hover:brightness-90 focus-visible:ring-[var(--status-blocked)]/40",
+  "On Hold": "bg-[var(--status-hold)] text-black hover:brightness-90 focus-visible:ring-[var(--status-hold)]/40",
+  Closed: "bg-[var(--status-closed)] text-white hover:brightness-90 focus-visible:ring-[var(--status-closed)]/40",
 } as const;
 
 const OPTIONS: Deal["status"][] = ["Open", "Blocked", "On Hold", "Closed"];
@@ -56,7 +56,7 @@ export function StatusCell({
           ref={triggerRef}
           data-editor
           className={[
-            "group w-full px-3 py-2 rounded text-left  cursor-pointer flex items-center justify-between gap-2",
+            "group w-full px-3 py-2 rounded text-left cursor-pointer flex items-center justify-between gap-2",
             "focus:outline-none data-[state=open]:ring-2 data-[state=open]:ring-black/10 data-[state=open]:shadow-lg",
             cellClassFor(value),
           ].join(" ")}
