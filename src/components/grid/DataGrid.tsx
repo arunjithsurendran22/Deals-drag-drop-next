@@ -16,13 +16,7 @@ import {
   useReactTable,
   flexRender,
 } from "@tanstack/react-table";
-import {
-  useMemo,
-  useRef,
-  useState,
-  useEffect,
-  Fragment,
-} from "react";
+import { useMemo, useRef, useState, useEffect, Fragment } from "react";
 import type { Deal } from "@/lib/schema";
 import classNames from "classnames";
 import { nextCell, GridCoord } from "@/lib/keyboard";
@@ -52,6 +46,10 @@ const ColumnHeader = dynamic(() => import("./ColumnHeader"), { ssr: false });
 // ---------- overlay sizing ----------
 const OVERLAY_MIN_W = 260;
 const OVERLAY_MAX_W = 300;
+
+// Make the drag ghost feel roomier
+const PREVIEW_ROW_H = 32; // px — height of each preview row inside the ghost
+const PREVIEW_ROW_GAP = 12; // px — vertical gap between preview rows
 
 // ---------- tiny utils ----------
 const money = (n: number) =>
@@ -85,18 +83,18 @@ const STAGE_BG: Record<Deal["stage"], string> = {
 };
 
 // ---------- preview renderer for overlay ----------
-function PreviewCell({
-  colId,
-  value,
-}: {
-  colId: string;
-  value: unknown;
-}) {
+function PreviewCell({ colId, value }: { colId: string; value: unknown }) {
+  // shared base styles per preview row
+  const style: React.CSSProperties = { height: PREVIEW_ROW_H };
+
   switch (colId) {
     case "status": {
       const v = value as Deal["status"];
       return (
-        <div className={`h-9 w-full rounded-md px-3 flex items-center font-medium ${STATUS_BG[v]}`}>
+        <div
+          style={style}
+          className={`w-full rounded-md px-3 flex items-center font-medium ${STATUS_BG[v]}`}
+        >
           {v}
         </div>
       );
@@ -104,7 +102,10 @@ function PreviewCell({
     case "stage": {
       const v = value as Deal["stage"];
       return (
-        <div className={`h-9 w-full rounded-md px-3 flex items-center font-medium ${STAGE_BG[v]}`}>
+        <div
+          style={style}
+          className={`w-full rounded-md px-3 flex items-center font-medium ${STAGE_BG[v]}`}
+        >
           {v}
         </div>
       );
@@ -112,7 +113,10 @@ function PreviewCell({
     case "owner": {
       const v = String(value ?? "");
       return (
-        <div className="h-9 w-full rounded-md bg-white border border-slate-200 px-3 flex items-center gap-2">
+        <div
+          style={style}
+          className="w-full rounded-md bg-white border border-slate-200 px-3 flex items-center gap-2"
+        >
           <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700 text-[11px] font-semibold">
             {initials(v)}
           </span>
@@ -123,7 +127,10 @@ function PreviewCell({
     case "amount": {
       const n = Number(value ?? 0);
       return (
-        <div className="h-9 w-full rounded-md bg-white border border-slate-200 px-3 flex items-center">
+        <div
+          style={style}
+          className="w-full rounded-md bg-white border border-slate-200 px-3 flex items-center"
+        >
           {money(n)}
         </div>
       );
@@ -131,14 +138,20 @@ function PreviewCell({
     case "probability": {
       const p = Number(value ?? 0);
       return (
-        <div className="h-9 w-full rounded-md bg-slate-100 px-3 flex items-center">
+        <div
+          style={style}
+          className="w-full rounded-md bg-slate-100 px-3 flex items-center"
+        >
           {`${Math.round(p * 100)}%`}
         </div>
       );
     }
     default: {
       return (
-        <div className="h-9 w-full rounded-md bg-slate-100 px-3 flex items-center truncate">
+        <div
+          style={style}
+          className="w-full rounded-md bg-slate-100 px-3 flex items-center truncate"
+        >
           {String(value ?? "")}
         </div>
       );
@@ -165,8 +178,13 @@ function HeaderGhost({
       style={{ width, height }}
       className="pointer-events-none select-none rounded-xl bg-white px-3 py-2 shadow-2xl ring-1 ring-black/10 rotate-2"
     >
-      <div className="text-xs uppercase tracking-wide text-slate-500 px-1 py-1">{label}</div>
-      <div className="mt-2 space-y-2 h-[calc(100%-32px)] overflow-hidden">
+      <div className="text-xs uppercase tracking-wide text-slate-500 px-1 py-1">
+        {label}
+      </div>
+      <div
+        className="mt-2 h-[calc(100%-32px)] overflow-hidden flex flex-col"
+        style={{ gap: PREVIEW_ROW_GAP }}
+      >
         {items.map((it) => (
           <PreviewCell key={it.key} colId={colId} value={it.value} />
         ))}
@@ -183,14 +201,25 @@ type GridProps = {
   previewRows?: number;
 };
 
-export default function DealsGrid({ data, height = 600, previewRows = 10 }: GridProps) {
+export default function DealsGrid({
+  data,
+  height = 600,
+  previewRows = 10,
+}: GridProps) {
   // ---- table state ----
-  const [sorting, setSorting] = useLocalStorageState<SortingState>("grid:sorting", []);
+  const [sorting, setSorting] = useLocalStorageState<SortingState>(
+    "grid:sorting",
+    []
+  );
   const [columnVisibility, setColumnVisibility] =
     useLocalStorageState<VisibilityState>("grid:visibility", {});
-  const [columnOrder, setColumnOrder] = useLocalStorageState<ColumnOrderState>("grid:order", []);
-  const [columnSizing, setColumnSizing] =
-    useLocalStorageState<Record<string, number>>("grid:sizing", {});
+  const [columnOrder, setColumnOrder] = useLocalStorageState<ColumnOrderState>(
+    "grid:order",
+    []
+  );
+  const [columnSizing, setColumnSizing] = useLocalStorageState<
+    Record<string, number>
+  >("grid:sizing", {});
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [globalFilter, setGlobalFilter] = useState<string>("");
@@ -201,161 +230,185 @@ export default function DealsGrid({ data, height = 600, previewRows = 10 }: Grid
   const shiftRef = useRef(false);
   const [focus, setFocus] = useState<GridCoord>({ row: 0, col: 0 });
   const [_tick, setTick] = useState(0);
-
+  console.log("====================================");
+  console.log(_tick);
+  console.log("====================================");
   // ---- overlay state ----
   const [draggingColId, setDraggingColId] = useState<string | null>(null);
   const [overlayWidth, setOverlayWidth] = useState<number>(OVERLAY_MIN_W);
   const [overlayLabel, setOverlayLabel] = useState<string>("");
-  const [overlayItems, setOverlayItems] = useState<Array<{ key: string; value: unknown }>>([]);
+  const [overlayItems, setOverlayItems] = useState<
+    Array<{ key: string; value: unknown }>
+  >([]);
 
-  // compute overlay height from requested previewRows (each ~36–40px + header/padding)
-  const overlayHeight = Math.min(640, 48 + Math.max(1, previewRows) * 40);
+  // each preview row = PREVIEW_ROW_H, gaps between = PREVIEW_ROW_GAP
+  const overlayHeight = Math.min(
+    720,
+    48 + // header + padding
+      Math.max(1, previewRows) * PREVIEW_ROW_H +
+      Math.max(0, previewRows - 1) * PREVIEW_ROW_GAP
+  );
 
   // ---- columns ----
-  const columns = useMemo<ColumnDef<Deal, unknown>[]>(() => [
-    {
-      id: "select",
-      header: ({ table }) => (
-        <input
-          type="checkbox"
-          aria-label="Select all"
-          checked={table.getIsAllRowsSelected()}
-          onChange={table.getToggleAllRowsSelectedHandler()}
-          className="accent-blue-600"
-        />
-      ),
-      cell: ({ row }) => (
-        <input
-          type="checkbox"
-          aria-label={`Select row ${row.index + 1}`}
-          checked={row.getIsSelected()}
-          onPointerDown={(e) => { shiftRef.current = e.shiftKey; }}
-          onChange={(e) => {
-            const checked = e.currentTarget.checked;
-            const useShift = shiftRef.current;
-            shiftRef.current = false;
+  const columns = useMemo<ColumnDef<Deal, unknown>[]>(
+    () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <input
+            type="checkbox"
+            aria-label="Select all"
+            checked={table.getIsAllRowsSelected()}
+            onChange={table.getToggleAllRowsSelectedHandler()}
+            className="accent-blue-600"
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            aria-label={`Select row ${row.index + 1}`}
+            checked={row.getIsSelected()}
+            onPointerDown={(e) => {
+              shiftRef.current = e.shiftKey;
+            }}
+            onChange={(e) => {
+              const checked = e.currentTarget.checked;
+              const useShift = shiftRef.current;
+              shiftRef.current = false;
 
-            if (useShift && lastSelectedRef.current !== null) {
-              const start = Math.min(lastSelectedRef.current, row.index);
-              const end = Math.max(lastSelectedRef.current, row.index);
-              const multi: RowSelectionState = {};
-              for (let i = start; i <= end; i++) multi[data[i].id] = checked;
-              setRowSelection((prev) => ({ ...prev, ...multi }));
-            } else {
-              setRowSelection((prev) => ({ ...prev, [row.id]: checked }));
-              lastSelectedRef.current = row.index;
-            }
-          }}
-          className="accent-blue-600"
-        />
-      ),
-      size: 40,
-      enableResizing: false,
-    },
-    {
-      accessorKey: "name",
-      header: "Deal",
-      cell: (ctx) => {
-        const expanded = ctx.row.getIsExpanded();
-        return (
-          <button
-            className="flex items-center gap-2 text-blue-700 underline-offset-2 cursor-pointer hover:underline focus-ring"
-            onClick={() => ctx.row.toggleExpanded()}
-            title={expanded ? "Collapse" : "click to Expand"}
-          >
-            <span
-              className={[
-                "inline-block transition-transform duration-150",
-                expanded ? "rotate-90" : "rotate-0",
-              ].join(" ")}
-              aria-hidden
+              if (useShift && lastSelectedRef.current !== null) {
+                const start = Math.min(lastSelectedRef.current, row.index);
+                const end = Math.max(lastSelectedRef.current, row.index);
+                const multi: RowSelectionState = {};
+                for (let i = start; i <= end; i++) multi[data[i].id] = checked;
+                setRowSelection((prev) => ({ ...prev, ...multi }));
+              } else {
+                setRowSelection((prev) => ({ ...prev, [row.id]: checked }));
+                lastSelectedRef.current = row.index;
+              }
+            }}
+            className="accent-blue-600"
+          />
+        ),
+        size: 40,
+        enableResizing: false,
+      },
+      {
+        accessorKey: "name",
+        header: "Deal",
+        cell: (ctx) => {
+          const expanded = ctx.row.getIsExpanded();
+          return (
+            <button
+              className="flex items-center gap-2 text-blue-700 underline-offset-2 cursor-pointer hover:underline focus-ring"
+              onClick={() => ctx.row.toggleExpanded()}
+              title={expanded ? "Collapse" : "click to Expand"}
             >
-              ▶
-            </span>
-            <span className="truncate">{ctx.getValue<string>()}</span>
-          </button>
-        );
+              <span
+                className={[
+                  "inline-block transition-transform duration-150",
+                  expanded ? "rotate-90" : "rotate-0",
+                ].join(" ")}
+                aria-hidden
+              >
+                ▶
+              </span>
+              <span className="truncate">{ctx.getValue<string>()}</span>
+            </button>
+          );
+        },
+        enableHiding: false,
+        size: 240,
       },
-      enableHiding: false,
-      size: 240,
-    },
-    {
-      accessorKey: "owner",
-      header: "Owner",
-      cell: (ctx) => (
-        <OwnerCell
-          value={ctx.getValue<string>()}
-          onChange={(v) => {
-            ctx.row.original.owner = v;
-            rt.options.meta?.rerender?.();
-          }}
-        />
-      ),
-      size: 140,
-      filterFn: (row, id, value) => !value || row.getValue(id) === value,
-    },
-    {
-      accessorKey: "stage",
-      header: "Stage",
-      cell: (ctx) => (
-        <StageCell
-          value={ctx.getValue<Deal["stage"]>()}
-          onChange={(v) => {
-            ctx.row.original.stage = v;
-            rt.options.meta?.rerender?.();
-          }}
-        />
-      ),
-      size: 160,
-      enableSorting: true,
-      filterFn: (row, id, value) => !value || row.getValue(id) === value,
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: (ctx) => (
-        <StatusCell
-          value={ctx.getValue<Deal["status"]>()}
-          onChange={(v) => {
-            ctx.row.original.status = v;
-            rt.options.meta?.rerender?.();
-          }}
-        />
-      ),
-      size: 140,
-      filterFn: (row, id, value) => !value || row.getValue(id) === value,
-    },
-    {
-      accessorKey: "amount",
-      header: "Amount",
-      cell: (ctx) => (
-        <AmountCell
-          value={ctx.getValue<number>()}
-          onChange={(v) => {
-            ctx.row.original.amount = v;
-            rt.options.meta?.rerender?.();
-          }}
-        />
-      ),
-      size: 140,
-      meta: { aggregate: "sum" },
-      enableSorting: true,
-      filterFn: (row, id) => {
-        const v = Number(row.getValue<number>(id));
-        const min = amountMin ? Number(amountMin) : -Infinity;
-        const max = amountMax ? Number(amountMax) : Infinity;
-        return v >= min && v <= max;
+      {
+        accessorKey: "owner",
+        header: "Owner",
+        cell: (ctx) => (
+          <OwnerCell
+            value={ctx.getValue<string>()}
+            onChange={(v) => {
+              ctx.row.original.owner = v;
+              rt.options.meta?.rerender?.();
+            }}
+          />
+        ),
+        size: 140,
+        filterFn: (row, id, value) => !value || row.getValue(id) === value,
       },
-    },
-    {
-      accessorKey: "probability",
-      header: "Prob.",
-      cell: (ctx) => `${Math.round((ctx.getValue<number>() ?? 0) * 100)}%`,
-      size: 100,
-    },
-    { accessorKey: "createdAt", header: "Created", size: 140, enableSorting: true },
-    { accessorKey: "closeDate", header: "Close Date", size: 140, enableSorting: true },
-  ], [amountMin, amountMax, data]);
+      {
+        accessorKey: "stage",
+        header: "Stage",
+        cell: (ctx) => (
+          <StageCell
+            value={ctx.getValue<Deal["stage"]>()}
+            onChange={(v) => {
+              ctx.row.original.stage = v;
+              rt.options.meta?.rerender?.();
+            }}
+          />
+        ),
+        size: 160,
+        enableSorting: true,
+        filterFn: (row, id, value) => !value || row.getValue(id) === value,
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: (ctx) => (
+          <StatusCell
+            value={ctx.getValue<Deal["status"]>()}
+            onChange={(v) => {
+              ctx.row.original.status = v;
+              rt.options.meta?.rerender?.();
+            }}
+          />
+        ),
+        size: 140,
+        filterFn: (row, id, value) => !value || row.getValue(id) === value,
+      },
+      {
+        accessorKey: "amount",
+        header: "Amount",
+        cell: (ctx) => (
+          <AmountCell
+            value={ctx.getValue<number>()}
+            onChange={(v) => {
+              ctx.row.original.amount = v;
+              rt.options.meta?.rerender?.();
+            }}
+          />
+        ),
+        size: 140,
+        meta: { aggregate: "sum" },
+        enableSorting: true,
+        filterFn: (row, id) => {
+          const v = Number(row.getValue<number>(id));
+          const min = amountMin ? Number(amountMin) : -Infinity;
+          const max = amountMax ? Number(amountMax) : Infinity;
+          return v >= min && v <= max;
+        },
+      },
+      {
+        accessorKey: "probability",
+        header: "Prob.",
+        cell: (ctx) => `${Math.round((ctx.getValue<number>() ?? 0) * 100)}%`,
+        size: 100,
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Created",
+        size: 140,
+        enableSorting: true,
+      },
+      {
+        accessorKey: "closeDate",
+        header: "Close Date",
+        size: 140,
+        enableSorting: true,
+      },
+    ],
+    [amountMin, amountMax, data]
+  );
 
   // ---- table instance ----
   const rt = useReactTable({
@@ -391,7 +444,14 @@ export default function DealsGrid({ data, height = 600, previewRows = 10 }: Grid
 
   // ---- keyboard nav ----
   function onKeyDown(e: React.KeyboardEvent<HTMLTableElement>) {
-    const keys = ["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "Enter", "Escape"];
+    const keys = [
+      "ArrowRight",
+      "ArrowLeft",
+      "ArrowDown",
+      "ArrowUp",
+      "Enter",
+      "Escape",
+    ];
     if (!keys.includes(e.key)) return;
     e.preventDefault();
     if (e.key === "Enter") {
@@ -547,23 +607,35 @@ export default function DealsGrid({ data, height = 600, previewRows = 10 }: Grid
                       <td
                         key={cell.id}
                         data-cell={`${rowIndex}:${colIndex}`}
-                        tabIndex={focus.row === rowIndex && focus.col === colIndex ? 0 : -1}
+                        tabIndex={
+                          focus.row === rowIndex && focus.col === colIndex
+                            ? 0
+                            : -1
+                        }
                         className={classNames(
                           "border-b border-slate-100 align-middle focus-ring transition-colors",
                           // highlight the column being dragged
                           cell.column.id === draggingColId && "bg-blue-50/70",
                           // tight padding for stage/status cells
-                          (cell.column.id === "stage" || cell.column.id === "status")
+                          cell.column.id === "stage" ||
+                            cell.column.id === "status"
                             ? "p-0"
                             : "px-3 py-2",
                           // keyboard focus ring
-                          focus.row === rowIndex && focus.col === colIndex && "ring-1 ring-blue-500"
+                          focus.row === rowIndex &&
+                            focus.col === colIndex &&
+                            "ring-1 ring-blue-500"
                         )}
-                        onFocus={() => setFocus({ row: rowIndex, col: colIndex })}
+                        onFocus={() =>
+                          setFocus({ row: rowIndex, col: colIndex })
+                        }
                         style={{ width: cell.column.getSize() }}
                       >
                         <RowMenu onDelete={() => alert("Delete row")}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
                         </RowMenu>
                       </td>
                     ))}

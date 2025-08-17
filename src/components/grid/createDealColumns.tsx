@@ -1,4 +1,4 @@
-// src/components/grid/createDealColumns.tsx
+
 "use client";
 
 import * as React from "react";
